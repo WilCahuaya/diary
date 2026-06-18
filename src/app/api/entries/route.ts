@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { isEditableDate } from "@/lib/dates";
 import type { JSONContent } from "@tiptap/react";
+import { normalizeImageUrls } from "@/lib/content";
 import {
   requireUser,
   handleApiError,
@@ -26,7 +27,11 @@ export async function GET(request: NextRequest) {
         return jsonWithCookies(withCookies, { error: error.message }, { status: 500 });
       }
 
-      return jsonWithCookies(withCookies, { entry: data });
+      const entry = data
+        ? { ...data, content: normalizeImageUrls(data.content as JSONContent) }
+        : null;
+
+      return jsonWithCookies(withCookies, { entry });
     }
 
     const { data, error } = await supabase
