@@ -14,6 +14,29 @@ import {
 } from "@/lib/dates";
 import type { Entry, Favorite } from "@/types/database";
 
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  const text = await res.text();
+
+  if (!text) {
+    throw new Error(res.ok ? "Respuesta vacía del servidor" : `Error ${res.status}`);
+  }
+
+  let data: T;
+  try {
+    data = JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Respuesta inválida del servidor (${res.status})`);
+  }
+
+  if (!res.ok) {
+    const err = data as { error?: string };
+    throw new Error(err.error ?? `Error ${res.status}`);
+  }
+
+  return data;
+}
+
 interface DiaryPageClientProps {
   dateParam: string;
 }
@@ -38,11 +61,13 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
     setLoading(true);
 
     Promise.all([
-      fetch(`/api/entries?date=${entryDate}`).then((r) => r.json()),
-      fetch(`/api/favorites?date=${entryDate}`).then((r) => r.json()),
+      fetchJson<{ entry: Entry | null }>(`/api/entries?date=${entryDate}`),
+      fetchJson<{ favorite: Favorite | null }>(`/api/favorites?date=${entryDate}`),
     ]).then(([entryData, favData]) => {
       setEntry(entryData.entry ?? null);
       setFavorite(favData.favorite ?? null);
+      setLoading(false);
+    }).catch(() => {
       setLoading(false);
     });
   }, [entryDate, router]);
