@@ -86,6 +86,16 @@ select,
 /* TipTap editor */
 .ProseMirror {
   outline: none;
+  caret-color: var(--foreground);
+}
+
+.ProseMirror .diary-paragraph--foreign {
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.ProseMirror .diary-paragraph--foreign * {
+  cursor: not-allowed;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {

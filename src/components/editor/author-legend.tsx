@@ -31,26 +31,28 @@ export function AuthorLegend({
   return (
     <div
       className={cn(
-        "mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs",
+        "mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs",
         className
       )}
     >
-      <span className="text-muted-foreground">{label}</span>
-      {visible.map((m) => {
-        const colorVar = authorColorVar(!!m.isOwner);
-        return (
-        <span key={m.userId} className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: colorVar }}
-          />
-          <span style={{ color: colorVar }} className="font-medium">
-            {m.displayName}
-            {m.userId === currentUserId ? " (tú)" : ""}
-          </span>
-        </span>
-        );
-      })}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-muted-foreground">{label}</span>
+        {visible.map((m) => {
+          const colorVar = authorColorVar(!!m.isOwner);
+          return (
+            <span key={m.userId} className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: colorVar }}
+              />
+              <span style={{ color: colorVar }} className="font-medium">
+                {m.displayName}
+                {m.userId === currentUserId ? " (tú)" : ""}
+              </span>
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,10 @@
 import { Extension, Mark, mergeAttributes } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { ReplaceStep } from "@tiptap/pm/transform";
 import type { Node as PMNode, MarkType } from "@tiptap/pm/model";
+import type { EditorState } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { authorExportColor, authorSlot } from "@/lib/theme";
 
 export interface AuthorProfile {
@@ -103,6 +106,205 @@ export function createAuthorPlugin(profile: AuthorProfile) {
   });
 }
 
+function canInsertAt(
+  state: EditorState,
+  pos: number,
+  currentUserId: string,
+  markType: MarkType
+): boolean {
+  const $pos = state.doc.resolve(Math.min(pos, state.doc.content.size));
+
+  if ($pos.parent.type.name === "paragraph" && $pos.parent.content.size === 0) {
+    return true;
+  }
+
+  const authorAtCursor = $pos.marks().find((m) => m.type === markType);
+  if (
+    authorAtCursor?.attrs.userId &&
+    authorAtCursor.attrs.userId !== currentUserId
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function paragraphIsForeignOnly(
+  node: PMNode,
+  markType: MarkType,
+  currentUserId: string
+): boolean {
+  if (node.type.name !== "paragraph" || node.content.size === 0) {
+    return false;
+  }
+
+  let hasOwnText = false;
+  let hasForeignText = false;
+
+  node.forEach((child) => {
+    if (!child.isText) return;
+    if (isForeignText(child, markType, currentUserId)) {
+      hasForeignText = true;
+    } else {
+      hasOwnText = true;
+    }
+  });
+
+  return hasForeignText && !hasOwnText;
+}
+
+function isForeignClick(
+  state: EditorState,
+  pos: number,
+  currentUserId: string,
+  markType: MarkType
+): boolean {
+  const $pos = state.doc.resolve(Math.min(pos, state.doc.content.size));
+
+  if ($pos.parent.type.name === "paragraph") {
+    if (paragraphIsForeignOnly($pos.parent, markType, currentUserId)) {
+      return true;
+    }
+  }
+
+  return !canInsertAt(state, pos, currentUserId, markType);
+}
+
+function findOrCreateWritablePos(
+  view: EditorView,
+  currentUserId: string,
+  markType: MarkType
+): number {
+  const { state } = view;
+  const { doc, schema } = state;
+
+  let lastEmptyPos: number | null = null;
+  doc.descendants((node, pos) => {
+    if (node.type.name === "paragraph" && node.content.size === 0) {
+      lastEmptyPos = pos + 1;
+    }
+  });
+
+  if (lastEmptyPos !== null) {
+    return lastEmptyPos;
+  }
+
+  const lastBlock = doc.lastChild;
+  if (lastBlock && paragraphIsForeignOnly(lastBlock, markType, currentUserId)) {
+    const insertPos = doc.content.size;
+    const tr = state.tr.insert(insertPos, schema.nodes.paragraph.create());
+    view.dispatch(tr);
+    return insertPos + 1;
+  }
+
+  return Math.max(1, doc.content.size - 1);
+}
+
+function redirectToWritablePos(
+  view: EditorView,
+  currentUserId: string,
+  markType: MarkType
+): boolean {
+  const targetPos = findOrCreateWritablePos(view, currentUserId, markType);
+  const selection = TextSelection.create(view.state.doc, targetPos);
+  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+  view.focus();
+  return true;
+}
+
+function createAuthorCursorPlugin(currentUserId: string) {
+  return new Plugin({
+    key: new PluginKey("authorCursor"),
+    props: {
+      decorations(state) {
+        const markType = state.schema.marks.author;
+        if (!markType) return DecorationSet.empty;
+
+        const decorations: Decoration[] = [];
+        state.doc.descendants((node, pos) => {
+          if (
+            node.type.name === "paragraph" &&
+            paragraphIsForeignOnly(node, markType, currentUserId)
+          ) {
+            decorations.push(
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: "diary-paragraph--foreign",
+              })
+            );
+          }
+        });
+
+        return DecorationSet.create(state.doc, decorations);
+      },
+      handleClick(view, pos) {
+        const markType = view.state.schema.marks.author;
+        if (!markType) return false;
+
+        if (isForeignClick(view.state, pos, currentUserId, markType)) {
+          return redirectToWritablePos(view, currentUserId, markType);
+        }
+
+        return false;
+      },
+      handleDOMEvents: {
+        mousedown(view, event) {
+          const markType = view.state.schema.marks.author;
+          if (!markType) return false;
+
+          const coords = view.posAtCoords({
+            left: event.clientX,
+            top: event.clientY,
+          });
+          if (!coords) return false;
+
+          if (isForeignClick(view.state, coords.pos, currentUserId, markType)) {
+            event.preventDefault();
+            return redirectToWritablePos(view, currentUserId, markType);
+          }
+
+          return false;
+        },
+      },
+    },
+  });
+}
+
+function getForeignTextSnapshot(
+  doc: EditorState["doc"],
+  markType: MarkType,
+  currentUserId: string
+): string {
+  const parts: string[] = [];
+  doc.descendants((node) => {
+    if (node.isText && isForeignText(node, markType, currentUserId)) {
+      parts.push(node.text ?? "");
+    }
+  });
+  return parts.join("\0");
+}
+
+function blocksParagraphJoinIntoForeign(
+  state: EditorState,
+  from: number,
+  to: number,
+  markType: MarkType,
+  currentUserId: string
+): boolean {
+  if (to <= from) return false;
+
+  const $from = state.doc.resolve(from);
+  if ($from.parent.type.name !== "paragraph") return false;
+
+  const paraStart = $from.start();
+  if (from > paraStart) return false;
+
+  const index = $from.index($from.depth - 1);
+  if (index === 0) return false;
+
+  const prevSibling = $from.node($from.depth - 1).child(index - 1);
+  return paragraphIsForeignOnly(prevSibling, markType, currentUserId);
+}
+
 export function createAuthorProtectionPlugin(currentUserId: string) {
   return new Plugin({
     key: new PluginKey("authorProtection"),
@@ -125,24 +327,48 @@ export function createAuthorProtectionPlugin(currentUserId: string) {
             }
           });
           if (blocked) return false;
-        }
 
-        if (step.slice.content.size > 0) {
-          const $pos = state.doc.resolve(Math.min(from, state.doc.content.size));
-          const marksAtPos = $pos.marks();
-          const authorAtCursor = marksAtPos.find((m) => m.type === markType);
-          if (
-            authorAtCursor?.attrs.userId &&
-            authorAtCursor.attrs.userId !== currentUserId
-          ) {
-            return false;
-          }
-
-          const nodeBefore = from > 0 ? state.doc.nodeAt(from - 1) : null;
-          if (nodeBefore && isForeignText(nodeBefore, markType, currentUserId)) {
+          if (blocksParagraphJoinIntoForeign(state, from, to, markType, currentUserId)) {
             return false;
           }
         }
+
+        if (
+          step.slice.content.size > 0 &&
+          !canInsertAt(state, from, currentUserId, markType)
+        ) {
+          return false;
+        }
+      }
+
+      let newState: EditorState;
+      try {
+        newState = state.apply(transaction);
+      } catch {
+        return false;
+      }
+
+      const { head, empty } = newState.selection;
+
+      if (isForeignClick(newState, head, currentUserId, markType)) {
+        return false;
+      }
+
+      if (!empty) {
+        let selectionTouchesForeign = false;
+        newState.doc.nodesBetween(newState.selection.from, newState.selection.to, (node) => {
+          if (isForeignText(node, markType, currentUserId)) {
+            selectionTouchesForeign = true;
+          }
+        });
+        if (selectionTouchesForeign) return false;
+      }
+
+      if (
+        getForeignTextSnapshot(state.doc, markType, currentUserId) !==
+        getForeignTextSnapshot(newState.doc, markType, currentUserId)
+      ) {
+        return false;
       }
 
       return true;
@@ -178,6 +404,9 @@ export const AuthorProtectionExtension = Extension.create<{ userId: string }>({
 
   addProseMirrorPlugins() {
     if (!this.options.userId) return [];
-    return [createAuthorProtectionPlugin(this.options.userId)];
+    return [
+      createAuthorProtectionPlugin(this.options.userId),
+      createAuthorCursorPlugin(this.options.userId),
+    ];
   },
 });
