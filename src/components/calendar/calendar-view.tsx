@@ -128,13 +128,13 @@ export function CalendarView({ days, initialYear, initialMonth }: CalendarViewPr
               title={isFavorite ? info?.favorite_reason ?? "Favorito" : undefined}
               className={cn(
                 "relative flex aspect-square min-h-10 flex-col items-center justify-center rounded-lg text-xs transition-colors active:bg-accent hover:bg-accent sm:min-h-0 sm:text-sm",
-                isFavorite && "ring-2 ring-amber-400/60 bg-amber-50 dark:bg-amber-950/30",
+                isFavorite && "ring-favorite bg-favorite-soft ring-2",
                 hasContent && !isFavorite && "bg-accent/50 font-medium"
               )}
             >
               {format(day, "d")}
               {isFavorite && (
-                <span className="absolute bottom-1 text-[10px] text-amber-600 dark:text-amber-400">
+                <span className="absolute bottom-1 text-[10px] text-favorite">
                   ★
                 </span>
               )}
@@ -149,7 +149,7 @@ export function CalendarView({ days, initialYear, initialMonth }: CalendarViewPr
           Con contenido
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded ring-2 ring-amber-400/60 bg-amber-50 dark:bg-amber-950/30" />
+          <span className="inline-block h-3 w-3 rounded ring-favorite bg-favorite-soft ring-2" />
           Favorito
         </span>
       </div>

@@ -79,8 +79,21 @@ export class AuthError extends Error {
   }
 }
 
+export class ForbiddenError extends Error {
+  status = 403;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
 export function handleApiError(error: unknown) {
   if (error instanceof AuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  if (error instanceof ForbiddenError) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 

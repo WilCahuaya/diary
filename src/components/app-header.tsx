@@ -95,7 +95,7 @@ export function AppHeader({
                 className={cn(
                   "rounded-lg p-2 transition-colors sm:ml-0.5 sm:p-1.5",
                   isFavorite
-                    ? "text-amber-500 hover:text-amber-600"
+                    ? "text-favorite hover:opacity-80"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent"
                 )}
                 aria-label={isFavorite ? "Quitar favorito" : "Marcar favorito"}

@@ -6,6 +6,7 @@ import {
   handleApiError,
   jsonWithCookies,
 } from "@/lib/supabase/api";
+import { requireWriteAccess } from "@/lib/members/server";
 import { imageProxyPath } from "@/lib/content";
 import type { DiaryImage } from "@/types/database";
 
@@ -21,7 +22,6 @@ export async function GET(request: NextRequest) {
     const { data: images, error } = await supabase
       .from("images")
       .select("*")
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { supabase, user, withCookies } = await requireUser(request);
+
+    await requireWriteAccess(supabase, user.id);
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

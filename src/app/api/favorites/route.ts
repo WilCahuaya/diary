@@ -4,10 +4,11 @@ import {
   handleApiError,
   jsonWithCookies,
 } from "@/lib/supabase/api";
+import { requireWriteAccess } from "@/lib/members/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, user, withCookies } = await requireUser(request);
+    const { supabase, withCookies } = await requireUser(request);
 
     const { searchParams } = new URL(request.url);
     const entryDate = searchParams.get("date");
@@ -19,7 +20,6 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("favorites")
       .select("*")
-      .eq("user_id", user.id)
       .eq("entry_date", entryDate)
       .maybeSingle();
 
@@ -42,17 +42,18 @@ export async function PUT(request: NextRequest) {
       reason: string | null;
     };
 
+    await requireWriteAccess(supabase, user.id);
+
     const { data: existing } = await supabase
       .from("favorites")
       .select("id")
-      .eq("user_id", user.id)
       .eq("entry_date", entry_date)
       .maybeSingle();
 
     if (existing) {
       const { data, error } = await supabase
         .from("favorites")
-        .update({ reason })
+        .update({ reason, user_id: user.id })
         .eq("id", existing.id)
         .select()
         .single();
@@ -90,11 +91,9 @@ export async function DELETE(request: NextRequest) {
       return jsonWithCookies(withCookies, { error: "Fecha requerida" }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from("favorites")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("entry_date", entryDate);
+    await requireWriteAccess(supabase, user.id);
+
+    const { error } = await supabase.from("favorites").delete().eq("entry_date", entryDate);
 
     if (error) {
       return jsonWithCookies(withCookies, { error: error.message }, { status: 500 });

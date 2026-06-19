@@ -1,33 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --foreground: #171717;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #a1a1aa;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  --primary: #18181b;
-  --primary-foreground: #fafafa;
-  --destructive: #dc2626;
+  --palette-mint: #b2d8c7;
+  --palette-lavender: #d1c4e9;
+  --palette-sand: #edebe6;
+
+  --background: #edebe6;
+  --foreground: #4a4035;
+  --muted: #b2d8c7;
+  --muted-foreground: #6b6358;
+  --border: #c9b896;
+  --input: #f0e4cc;
+  --ring: #7ba894;
+  --accent: #d1c4e9;
+  --accent-foreground: #4a3f55;
+  --primary: #6a9580;
+  --primary-foreground: #fdfbf7;
+  --destructive: #c45c5c;
+  --author-owner: #4d7563;
+  --author-guest: #7a6a98;
+  --favorite: #8b7ab5;
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #52525b;
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #18181b;
-  --destructive: #ef4444;
+  --background: #2e2824;
+  --foreground: #f5ede0;
+  --muted: #4a4540;
+  --muted-foreground: #c9b896;
+  --border: #5c5248;
+  --input: #3d3630;
+  --ring: #b2d8c7;
+  --accent: #5c4f6e;
+  --accent-foreground: #e8dff5;
+  --primary: #b2d8c7;
+  --primary-foreground: #2e2824;
+  --destructive: #e88888;
+  --author-owner: #b2d8c7;
+  --author-guest: #d1c4e9;
+  --favorite: #d1c4e9;
 }
 
 @theme inline {
@@ -86,6 +96,14 @@ select,
   pointer-events: none;
 }
 
+.diary-author-text[data-author-slot="owner"] {
+  color: var(--author-owner);
+}
+
+.diary-author-text[data-author-slot="guest"] {
+  color: var(--author-guest);
+}
+
 .diary-inline-image,
 .ProseMirror img {
   max-width: 100%;
@@ -101,4 +119,20 @@ select,
 
 .ProseMirror img:active {
   cursor: grabbing;
+}
+
+.text-favorite {
+  color: var(--favorite);
+}
+
+.fill-favorite {
+  fill: var(--favorite);
+}
+
+.ring-favorite {
+  --tw-ring-color: color-mix(in srgb, var(--favorite) 60%, transparent);
+}
+
+.bg-favorite-soft {
+  background-color: color-mix(in srgb, var(--favorite) 18%, var(--background));
 }

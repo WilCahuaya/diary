@@ -12,7 +12,8 @@ import {
   isReadOnlyDate,
   todayString,
 } from "@/lib/dates";
-import type { Entry, Favorite } from "@/types/database";
+import type { Entry, Favorite, MembersResponse } from "@/types/database";
+import type { AuthorProfile } from "@/lib/editor/author-mark";
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -49,6 +50,10 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
 
   const [entry, setEntry] = useState<Entry | null>(null);
   const [favorite, setFavorite] = useState<Favorite | null>(null);
+  const [authorProfile, setAuthorProfile] = useState<AuthorProfile | null>(null);
+  const [members, setMembers] = useState<AuthorProfile[]>([]);
+  const [canWrite, setCanWrite] = useState(true);
+  const [guestCanWrite, setGuestCanWrite] = useState(true);
   const [loading, setLoading] = useState(true);
   const [favoriteDialogOpen, setFavoriteDialogOpen] = useState(false);
 
@@ -63,9 +68,25 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
     Promise.all([
       fetchJson<{ entry: Entry | null }>(`/api/entries?date=${entryDate}`),
       fetchJson<{ favorite: Favorite | null }>(`/api/favorites?date=${entryDate}`),
-    ]).then(([entryData, favData]) => {
+      fetchJson<MembersResponse>("/api/members"),
+    ]).then(([entryData, favData, membersData]) => {
       setEntry(entryData.entry ?? null);
       setFavorite(favData.favorite ?? null);
+      const mapped = membersData.members.map((m) => ({
+        userId: m.userId,
+        displayName: m.displayName,
+        color: m.color,
+        isOwner: m.isOwner,
+      }));
+      setMembers(mapped);
+      setCanWrite(membersData.current.canWrite);
+      setGuestCanWrite(membersData.guestCanWrite);
+      setAuthorProfile({
+        userId: membersData.current.userId,
+        displayName: membersData.current.displayName,
+        color: membersData.current.color,
+        isOwner: membersData.current.isOwner,
+      });
       setLoading(false);
     }).catch(() => {
       setLoading(false);
@@ -87,7 +108,8 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
   }, [entryDate, router]);
 
   const canGoNext = entryDate ? entryDate < todayString() : false;
-  const readOnly = entryDate ? isReadOnlyDate(entryDate) : true;
+  const dateReadOnly = entryDate ? isReadOnlyDate(entryDate) : true;
+  const readOnly = dateReadOnly || !canWrite;
 
   async function handleFavoriteSave(reason: string | null) {
     if (!entryDate) return;
@@ -123,7 +145,7 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
         onNextDay={goToNextDay}
         canGoNext={canGoNext}
         isFavorite={!!favorite}
-        onToggleFavorite={() => setFavoriteDialogOpen(true)}
+        onToggleFavorite={canWrite ? () => setFavoriteDialogOpen(true) : undefined}
       />
 
       <main className="mx-auto max-w-3xl px-3 py-4 sm:px-4 sm:py-6 md:px-6">
@@ -133,22 +155,33 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
           </div>
         ) : (
           <>
-            {readOnly && (
+            {!canWrite && (
+              <p className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Tienes acceso de solo lectura. La dueña del diario desactivó la edición
+                para tu cuenta.
+              </p>
+            )}
+            {canWrite && dateReadOnly && (
               <p className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                 Esta entrada es de solo lectura. Solo puedes editar hoy y ayer.
               </p>
             )}
             {favorite?.reason && (
-              <p className="mb-4 text-sm text-amber-600 dark:text-amber-400">
+              <p className="mb-4 text-sm text-favorite">
                 ★ Favorito: {favorite.reason}
               </p>
             )}
-            <DiaryEditor
-              key={entryDate}
-              entryDate={entryDate}
-              initialContent={entry?.content ?? EMPTY_DOC}
-              readOnly={readOnly}
-            />
+            {authorProfile && (
+              <DiaryEditor
+                key={entryDate}
+                entryDate={entryDate}
+                initialContent={entry?.content ?? EMPTY_DOC}
+                readOnly={readOnly}
+                authorProfile={authorProfile}
+                members={members}
+                guestCanWrite={guestCanWrite}
+              />
+            )}
           </>
         )}
       </main>

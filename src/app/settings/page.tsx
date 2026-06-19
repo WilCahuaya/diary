@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { exportEntriesToPdf } from "@/lib/export/pdf";
-import type { Entry } from "@/types/database";
+import { authorColorVar } from "@/lib/theme";
+import type { DiaryMember, Entry, MembersResponse } from "@/types/database";
 import { todayString } from "@/lib/dates";
 import { format } from "date-fns";
 
@@ -13,6 +14,86 @@ export default function SettingsPage() {
   const [exportLoading, setExportLoading] = useState(false);
   const [exportType, setExportType] = useState<"day" | "month" | "year">("day");
   const [exportValue, setExportValue] = useState(todayString());
+  const [profile, setProfile] = useState<DiaryMember | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [nameLoading, setNameLoading] = useState(true);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameMessage, setNameMessage] = useState<string | null>(null);
+  const [guestCanWrite, setGuestCanWrite] = useState(true);
+  const [guestSaving, setGuestSaving] = useState(false);
+  const [guestMessage, setGuestMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/members")
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as MembersResponse;
+      })
+      .then((data) => {
+        if (data) {
+          setProfile(data.current);
+          setDisplayName(data.current.displayName);
+          setGuestCanWrite(data.guestCanWrite);
+        }
+      })
+      .finally(() => setNameLoading(false));
+  }, []);
+
+  async function handleSaveName() {
+    setNameMessage(null);
+    setNameSaving(true);
+    try {
+      const res = await fetch("/api/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      const data = (await res.json()) as { current?: DiaryMember; error?: string };
+
+      if (!res.ok) {
+        setNameMessage(data.error ?? "No se pudo guardar el nombre");
+        return;
+      }
+
+      if (data.current) {
+        setProfile(data.current);
+        setDisplayName(data.current.displayName);
+        setNameMessage("Nombre actualizado");
+      }
+    } finally {
+      setNameSaving(false);
+    }
+  }
+
+  const nameChanged =
+    profile !== null && displayName.trim() !== profile.displayName;
+
+  async function handleGuestWriteChange(enabled: boolean) {
+    setGuestMessage(null);
+    setGuestSaving(true);
+    setGuestCanWrite(enabled);
+    try {
+      const res = await fetch("/api/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestCanWrite: enabled }),
+      });
+      const data = (await res.json()) as { guestCanWrite?: boolean; error?: string };
+
+      if (!res.ok) {
+        setGuestCanWrite(!enabled);
+        setGuestMessage(data.error ?? "No se pudo guardar");
+        return;
+      }
+
+      if (typeof data.guestCanWrite === "boolean") {
+        setGuestCanWrite(data.guestCanWrite);
+      }
+      setGuestMessage(enabled ? "La otra integrante ya puede escribir" : "Solo lectura activada");
+    } finally {
+      setGuestSaving(false);
+    }
+  }
 
   async function handleBackup() {
     setBackupLoading(true);
@@ -67,6 +148,102 @@ export default function SettingsPage() {
       <AppHeader />
       <main className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-6">
         <h1 className="mb-8 text-xl font-medium">Ajustes</h1>
+
+        <section className="mb-10">
+          <h2 className="mb-1 text-sm font-medium">Tu nombre en el diario</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Así aparecerás en la leyenda y en el texto que escribas. Cada una puede
+            cambiar solo su propio nombre.
+          </p>
+          <div className="space-y-3 rounded-xl border border-border p-4">
+            {nameLoading ? (
+              <p className="text-sm text-muted-foreground">Cargando...</p>
+            ) : profile ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-full"
+                    style={{ backgroundColor: authorColorVar(profile.isOwner) }}
+                    aria-hidden
+                  />
+                  <input
+                    type="text"
+                    value={displayName}
+                    maxLength={40}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      setNameMessage(null);
+                    }}
+                    placeholder="Tu nombre"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={nameSaving || !displayName.trim() || !nameChanged}
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {nameSaving ? "Guardando..." : "Guardar nombre"}
+                </button>
+                {nameMessage ? (
+                  <p
+                    className={`text-sm ${
+                      nameMessage === "Nombre actualizado"
+                        ? "text-primary"
+                        : "text-destructive"
+                    }`}
+                  >
+                    {nameMessage}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No se pudo cargar tu perfil.
+              </p>
+            )}
+          </div>
+        </section>
+
+        {profile?.isOwner ? (
+          <section className="mb-10">
+            <h2 className="mb-1 text-sm font-medium">Permisos de la otra integrante</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Decide si la otra persona puede escribir en el diario o solo ver las
+              entradas.
+            </p>
+            <div className="space-y-3 rounded-xl border border-border p-4">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={guestCanWrite}
+                  disabled={guestSaving}
+                  onChange={(e) => handleGuestWriteChange(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-input"
+                />
+                <span className="text-left text-sm">
+                  <span className="font-medium">Permitir que escriba</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    {guestCanWrite
+                      ? "Puede editar hoy y ayer, subir imágenes y marcar favoritos."
+                      : "Solo puede leer el diario; no puede modificar nada."}
+                  </span>
+                </span>
+              </label>
+              {guestMessage ? (
+                <p className="text-sm text-muted-foreground">{guestMessage}</p>
+              ) : null}
+            </div>
+          </section>
+        ) : profile && !profile.canWrite ? (
+          <section className="mb-10">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Tienes acceso de solo lectura. La dueña del diario desactivó la
+              edición para tu cuenta.
+            </div>
+          </section>
+        ) : null}
 
         <section className="mb-10">
           <h2 className="mb-1 text-sm font-medium">Respaldo completo</h2>

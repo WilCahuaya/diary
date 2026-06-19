@@ -28,6 +28,20 @@ export interface DiaryImage {
   created_at: string;
 }
 
+export interface DiaryMember {
+  userId: string;
+  displayName: string;
+  color: string;
+  isOwner: boolean;
+  canWrite: boolean;
+}
+
+export interface MembersResponse {
+  current: DiaryMember;
+  members: DiaryMember[];
+  guestCanWrite: boolean;
+}
+
 export interface SearchResult {
   entry_date: string;
   match_count: number;
@@ -43,9 +57,15 @@ export interface CalendarDay {
 }
 
 export interface BackupData {
-  version: 1;
+  version: 1 | 2;
   exported_at: string;
   entries: Entry[];
   favorites: Favorite[];
   images: DiaryImage[];
+  members?: Array<{
+    user_id: string;
+    display_name: string;
+    color: string;
+    is_owner: boolean;
+  }>;
 }

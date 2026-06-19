@@ -77,7 +77,7 @@ export default function SearchPage() {
                   {result.match_count === 1 ? "coincidencia" : "coincidencias"})
                 </span>
                 {result.is_favorite && (
-                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <Star className="h-3.5 w-3.5 fill-favorite text-favorite" />
                 )}
               </div>
               <div className="space-y-1.5">

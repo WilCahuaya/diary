@@ -4,6 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { DiaryImage, insertDiaryImage } from "@/lib/editor/diary-image";
+import { AuthorMark, AuthorTypingExtension, AuthorProtectionExtension, type AuthorProfile } from "@/lib/editor/author-mark";
+import { AuthorLegend } from "./author-legend";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/react";
 import { ImagePlus } from "lucide-react";
@@ -22,6 +24,9 @@ interface DiaryEditorProps {
   entryDate: string;
   initialContent: JSONContent;
   readOnly: boolean;
+  authorProfile: AuthorProfile;
+  members: AuthorProfile[];
+  guestCanWrite?: boolean;
   onSaved?: (updatedAt: string) => void;
 }
 
@@ -29,6 +34,9 @@ export function DiaryEditor({
   entryDate,
   initialContent,
   readOnly,
+  authorProfile,
+  members,
+  guestCanWrite = true,
   onSaved,
 }: DiaryEditorProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "offline">("idle");
@@ -92,21 +100,29 @@ export function DiaryEditor({
     []
   );
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      DiaryImage.configure({
-        inline: false,
-        allowBase64: false,
-        HTMLAttributes: { class: "diary-inline-image" },
-      }),
-      Placeholder.configure({
-        placeholder: readOnly
-          ? "Esta entrada es de solo lectura."
-          : "Escribe sobre tu día...",
-      }),
-    ],
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      extensions: [
+        StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+        AuthorMark,
+        ...(readOnly
+          ? []
+          : [
+              AuthorTypingExtension.configure({ profile: authorProfile }),
+              AuthorProtectionExtension.configure({ userId: authorProfile.userId }),
+            ]),
+        DiaryImage.configure({
+          inline: false,
+          allowBase64: false,
+          HTMLAttributes: { class: "diary-inline-image" },
+        }),
+        Placeholder.configure({
+          placeholder: readOnly
+            ? "Esta entrada es de solo lectura."
+            : "Escribe sobre tu día...",
+        }),
+      ],
     content: initialContent?.content?.length ? initialContent : EMPTY_DOC,
     editable: !readOnly,
     editorProps: {
@@ -175,7 +191,9 @@ export function DiaryEditor({
     onBlur: ({ editor: ed }) => {
       if (!readOnly) saveEntry(ed.getJSON());
     },
-  });
+  },
+    [authorProfile.userId, authorProfile.color, entryDate, readOnly]
+  );
 
   useEffect(() => {
     if (!editor) return;
@@ -260,6 +278,11 @@ export function DiaryEditor({
 
   return (
     <div className="relative">
+      <AuthorLegend
+        members={members}
+        currentUserId={authorProfile.userId}
+        guestCanWrite={guestCanWrite}
+      />
       {!readOnly && (
         <div className="mb-3 flex items-center justify-between gap-2 border-b border-border pb-3 sm:mb-4 lg:justify-end">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors active:bg-accent hover:bg-accent hover:text-accent-foreground lg:hidden">
@@ -277,8 +300,8 @@ export function DiaryEditor({
             className={cn(
               "text-xs transition-opacity lg:ml-auto",
               saveStatus === "idle" ? "opacity-0" : "opacity-100",
-              saveStatus === "offline" && "text-amber-600 dark:text-amber-400",
-              saveStatus === "saved" && "text-green-600 dark:text-green-400"
+              saveStatus === "offline" && "text-muted-foreground",
+              saveStatus === "saved" && "text-primary"
             )}
           >
             {saveStatus === "saving" && "Guardando..."}

@@ -1,4 +1,5 @@
 import type { JSONContent } from "@tiptap/react";
+import { authorExportColor } from "@/lib/theme";
 
 function renderNode(node: JSONContent): string {
   switch (node.type) {
@@ -28,6 +29,13 @@ function renderNode(node: JSONContent): string {
           if (mark.type === "italic") text = `<em>${text}</em>`;
           if (mark.type === "underline") text = `<u>${text}</u>`;
           if (mark.type === "strike") text = `<s>${text}</s>`;
+          if (mark.type === "author") {
+            const slot = mark.attrs?.authorSlot as string | undefined;
+            const color =
+              (mark.attrs?.color as string) ??
+              authorExportColor(slot === "owner");
+            text = `<span style="color:${escapeHtml(color)}">${text}</span>`;
+          }
         }
       }
       return text;
