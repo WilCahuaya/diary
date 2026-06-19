@@ -92,6 +92,10 @@ export async function PATCH(request: NextRequest) {
     const updates: Partial<Pick<MemberRow, "display_name" | "guest_can_write">> = {};
 
     if (body.displayName !== undefined) {
+      if (!context.canWrite) {
+        throw new ForbiddenError("Solo lectura");
+      }
+
       const trimmed = body.displayName.trim();
 
       if (!trimmed) {

@@ -157,7 +157,7 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
           <>
             {!canWrite && (
               <p className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Tienes acceso de solo lectura. La dueña del diario desactivó la edición
+                Tienes acceso de solo lectura. El dueño del diario desactivó la edición
                 para tu cuenta.
               </p>
             )}

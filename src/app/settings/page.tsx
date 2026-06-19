@@ -149,6 +149,7 @@ export default function SettingsPage() {
       <main className="mx-auto max-w-lg px-3 py-4 sm:px-4 sm:py-6">
         <h1 className="mb-8 text-xl font-medium">Ajustes</h1>
 
+        {(nameLoading || !profile || profile.canWrite) && (
         <section className="mb-10">
           <h2 className="mb-1 text-sm font-medium">Tu nombre en el diario</h2>
           <p className="mb-4 text-sm text-muted-foreground">
@@ -205,6 +206,7 @@ export default function SettingsPage() {
             )}
           </div>
         </section>
+        )}
 
         {profile?.isOwner ? (
           <section className="mb-10">
@@ -239,7 +241,7 @@ export default function SettingsPage() {
         ) : profile && !profile.canWrite ? (
           <section className="mb-10">
             <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Tienes acceso de solo lectura. La dueña del diario desactivó la
+              Tienes acceso de solo lectura. El dueño del diario desactivó la
               edición para tu cuenta.
             </div>
           </section>

@@ -1,3 +1,3 @@
--- Paleta Calidez Neutra: menta (dueña) y lavanda (invitada)
+-- Paleta Calidez Neutra: menta (dueño) y lavanda (invitada)
 UPDATE diary_members SET color = '#4D7563' WHERE is_owner = true;
 UPDATE diary_members SET color = '#7A6A98' WHERE is_owner = false;
