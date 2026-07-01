@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -11,12 +11,51 @@ export default function LoginPage() {
   const [passwordReady, setPasswordReady] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const passwordTypedByUser = useRef(false);
   const router = useRouter();
   const supabase = createClient();
 
-  useEffect(() => {
+  const clearPassword = useCallback(() => {
     setPassword("");
+    if (passwordRef.current) {
+      passwordRef.current.value = "";
+    }
   }, []);
+
+  const rejectAutofilledPassword = useCallback(() => {
+    if (!passwordTypedByUser.current) {
+      clearPassword();
+    }
+  }, [clearPassword]);
+
+  useEffect(() => {
+    clearPassword();
+    const delays = [100, 300, 500];
+    const timers = delays.map((delay) =>
+      setTimeout(() => {
+        const el = passwordRef.current;
+        if (el?.value && !passwordTypedByUser.current) {
+          clearPassword();
+        }
+      }, delay),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [clearPassword]);
+
+  function handlePasswordFocus() {
+    setPasswordReady(true);
+    const delays = [50, 150, 400];
+    delays.forEach((delay) => {
+      setTimeout(rejectAutofilledPassword, delay);
+    });
+  }
+
+  function handlePasswordAnimationStart(e: React.AnimationEvent<HTMLInputElement>) {
+    if (e.animationName === "onAutoFillStart") {
+      rejectAutofilledPassword();
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,16 +109,32 @@ export default function LoginPage() {
               Contraseña
             </label>
             <input
+              ref={passwordRef}
               id="password"
               name="diary-password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onFocus={() => setPasswordReady(true)}
+              onKeyDown={() => {
+                passwordTypedByUser.current = true;
+              }}
+              onChange={(e) => {
+                if (!passwordTypedByUser.current) {
+                  rejectAutofilledPassword();
+                  return;
+                }
+                setPassword(e.target.value);
+              }}
+              onInput={() => {
+                if (!passwordTypedByUser.current) {
+                  rejectAutofilledPassword();
+                }
+              }}
+              onAnimationStart={handlePasswordAnimationStart}
+              onFocus={handlePasswordFocus}
               readOnly={!passwordReady}
               required
               autoComplete="new-password"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="login-password-field w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
