@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { WindowCloseLogout } from "@/components/window-close-logout";
 import "./globals.css";
 
 const geist = Geist({
@@ -34,7 +35,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${geist.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-dvh bg-background font-sans text-foreground antialiased pb-[env(safe-area-inset-bottom)]">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <WindowCloseLogout />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
