@@ -1,59 +1,55 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [passwordReady, setPasswordReady] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const passwordTypedByUser = useRef(false);
   const router = useRouter();
   const supabase = createClient();
 
-  const clearPassword = useCallback(() => {
-    setPassword("");
-    if (passwordRef.current) {
-      passwordRef.current.value = "";
-    }
-  }, []);
-
-  const rejectAutofilledPassword = useCallback(() => {
-    if (!passwordTypedByUser.current) {
-      clearPassword();
-    }
-  }, [clearPassword]);
-
   useEffect(() => {
-    clearPassword();
-    const delays = [100, 300, 500];
-    const timers = delays.map((delay) =>
-      setTimeout(() => {
-        const el = passwordRef.current;
-        if (el?.value && !passwordTypedByUser.current) {
-          clearPassword();
-        }
-      }, delay),
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [clearPassword]);
+    if (!passwordFocused) return;
 
-  function handlePasswordFocus() {
-    setPasswordReady(true);
-    const delays = [50, 150, 400];
-    delays.forEach((delay) => {
-      setTimeout(rejectAutofilledPassword, delay);
-    });
-  }
+    const id = window.setInterval(() => {
+      const el = passwordRef.current;
+      if (el && el.value !== password) {
+        el.value = password;
+      }
+    }, 50);
 
-  function handlePasswordAnimationStart(e: React.AnimationEvent<HTMLInputElement>) {
-    if (e.animationName === "onAutoFillStart") {
-      rejectAutofilledPassword();
+    return () => clearInterval(id);
+  }, [password, passwordFocused]);
+
+  function handlePasswordKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Tab" || e.key === "Enter") return;
+
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      setPassword((current) => current.slice(0, -1));
+      return;
+    }
+
+    if (e.key === "Delete") {
+      e.preventDefault();
+      setPassword("");
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+      e.preventDefault();
+      return;
+    }
+
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      setPassword((current) => current + e.key);
     }
   }
 
@@ -87,7 +83,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
           <div>
             <label htmlFor="email" className="mb-1 block text-sm text-muted-foreground">
               Correo electrónico
@@ -111,30 +107,28 @@ export default function LoginPage() {
             <input
               ref={passwordRef}
               id="password"
-              name="diary-password"
-              type="password"
+              name="diary-secret"
+              type="text"
               value={password}
-              onKeyDown={() => {
-                passwordTypedByUser.current = true;
-              }}
+              onKeyDown={handlePasswordKeyDown}
               onChange={(e) => {
-                if (!passwordTypedByUser.current) {
-                  rejectAutofilledPassword();
-                  return;
-                }
-                setPassword(e.target.value);
-              }}
-              onInput={() => {
-                if (!passwordTypedByUser.current) {
-                  rejectAutofilledPassword();
+                if (e.target.value !== password) {
+                  e.target.value = password;
                 }
               }}
-              onAnimationStart={handlePasswordAnimationStart}
-              onFocus={handlePasswordFocus}
-              readOnly={!passwordReady}
+              onPaste={(e) => e.preventDefault()}
+              onDrop={(e) => e.preventDefault()}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
               required
-              autoComplete="new-password"
-              className="login-password-field w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              autoComplete="one-time-code"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
             />
           </div>
 
@@ -148,12 +142,6 @@ export default function LoginPage() {
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-muted-foreground">
-          <Link href="/forgot-password" className="hover:text-foreground underline-offset-4 hover:underline">
-            ¿Olvidaste tu contraseña?
-          </Link>
-        </p>
       </div>
     </div>
   );

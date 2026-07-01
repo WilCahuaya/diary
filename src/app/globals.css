@@ -146,17 +146,3 @@ select,
 .bg-favorite-soft {
   background-color: color-mix(in srgb, var(--favorite) 18%, var(--background));
 }
-
-@keyframes onAutoFillStart {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-input.login-password-field:-webkit-autofill {
-  animation-name: onAutoFillStart;
-  animation-duration: 0.001s;
-}
