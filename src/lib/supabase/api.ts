@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
+import { asSessionCookieOptions } from "@/lib/supabase/session-cookies";
 
 function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -40,7 +41,7 @@ export function createClientFromRequest(request: NextRequest) {
 
   function withCookies<T extends NextResponse>(response: T): T {
     pendingCookies.forEach(({ name, value, options }) => {
-      response.cookies.set(name, value, options);
+      response.cookies.set(name, value, asSessionCookieOptions(options ?? {}));
     });
     return response;
   }
