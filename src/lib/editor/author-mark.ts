@@ -65,7 +65,7 @@ function isForeignText(
 ): boolean {
   if (!node.isText) return false;
   const authorMark = node.marks.find((m) => m.type === markType);
-  if (!authorMark?.attrs.userId) return true;
+  if (!authorMark?.attrs.userId) return false;
   return authorMark.attrs.userId !== currentUserId;
 }
 

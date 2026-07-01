@@ -18,11 +18,15 @@ import {
 } from "@/lib/offline/db";
 import { cn } from "@/lib/utils";
 
-const EMPTY_DOC: JSONContent = { type: "doc", content: [] };
+const EMPTY_DOC: JSONContent = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
 
 interface DiaryEditorProps {
   entryDate: string;
   initialContent: JSONContent;
+  entryUpdatedAt?: string | null;
   readOnly: boolean;
   authorProfile: AuthorProfile;
   members: AuthorProfile[];
@@ -33,6 +37,7 @@ interface DiaryEditorProps {
 export function DiaryEditor({
   entryDate,
   initialContent,
+  entryUpdatedAt,
   readOnly,
   authorProfile,
   members,
@@ -191,8 +196,14 @@ export function DiaryEditor({
     onBlur: ({ editor: ed }) => {
       if (!readOnly) saveEntry(ed.getJSON());
     },
+    onCreate: ({ editor: ed }) => {
+      const json = ed.getJSON();
+      if (!json.content?.length) {
+        ed.commands.setContent(EMPTY_DOC, { emitUpdate: false });
+      }
+    },
   },
-    [authorProfile.userId, authorProfile.color, entryDate, readOnly]
+    [authorProfile.userId, authorProfile.color, authorProfile.isOwner, entryDate, readOnly]
   );
 
   useEffect(() => {
@@ -250,8 +261,8 @@ export function DiaryEditor({
 
     getCachedEntry(entryDate).then((cached) => {
       if (cached && editor && !readOnly) {
-        const serverTime = initialContent ? new Date().toISOString() : "";
-        if (cached.updatedAt > serverTime) {
+        const serverTime = entryUpdatedAt ?? "";
+        if (!serverTime || cached.updatedAt > serverTime) {
           editor.commands.setContent(cached.content, { emitUpdate: false });
         }
       }
@@ -261,7 +272,7 @@ export function DiaryEditor({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [editor, entryDate, readOnly, initialContent]);
+  }, [editor, entryDate, readOnly, entryUpdatedAt]);
 
   async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;

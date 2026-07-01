@@ -42,7 +42,10 @@ interface DiaryPageClientProps {
   dateParam: string;
 }
 
-const EMPTY_DOC: JSONContent = { type: "doc", content: [] };
+const EMPTY_DOC: JSONContent = {
+  type: "doc",
+  content: [{ type: "paragraph" }],
+};
 
 export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
   const router = useRouter();
@@ -176,6 +179,7 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
                 key={entryDate}
                 entryDate={entryDate}
                 initialContent={entry?.content ?? EMPTY_DOC}
+                entryUpdatedAt={entry?.updated_at ?? null}
                 readOnly={readOnly}
                 authorProfile={authorProfile}
                 members={members}
