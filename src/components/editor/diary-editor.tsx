@@ -14,7 +14,6 @@ import {
   queuePendingSave,
   removePendingSave,
   cacheEntry,
-  getCachedEntry,
 } from "@/lib/offline/db";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +25,6 @@ const EMPTY_DOC: JSONContent = {
 interface DiaryEditorProps {
   entryDate: string;
   initialContent: JSONContent;
-  entryUpdatedAt?: string | null;
   readOnly: boolean;
   authorProfile: AuthorProfile;
   members: AuthorProfile[];
@@ -37,7 +35,6 @@ interface DiaryEditorProps {
 export function DiaryEditor({
   entryDate,
   initialContent,
-  entryUpdatedAt,
   readOnly,
   authorProfile,
   members,
@@ -46,6 +43,7 @@ export function DiaryEditor({
 }: DiaryEditorProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "offline">("idle");
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOnline = useRef(typeof navigator !== "undefined" ? navigator.onLine : true);
 
   const saveEntry = useCallback(
@@ -196,11 +194,13 @@ export function DiaryEditor({
     onBlur: ({ editor: ed }) => {
       if (!readOnly) saveEntry(ed.getJSON());
     },
-    onCreate: ({ editor: ed }) => {
-      const json = ed.getJSON();
-      if (!json.content?.length) {
-        ed.commands.setContent(EMPTY_DOC, { emitUpdate: false });
-      }
+    onUpdate: ({ editor: ed }) => {
+      if (readOnly) return;
+
+      if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
+      autosaveTimeout.current = setTimeout(() => {
+        saveEntry(ed.getJSON());
+      }, 800);
     },
   },
     [authorProfile.userId, authorProfile.color, authorProfile.isOwner, entryDate, readOnly]
@@ -212,10 +212,10 @@ export function DiaryEditor({
   }, [editor, readOnly]);
 
   useEffect(() => {
-    if (!editor) return;
-    const content = initialContent?.content?.length ? initialContent : EMPTY_DOC;
-    editor.commands.setContent(content, { emitUpdate: false });
-  }, [editor, entryDate, initialContent]);
+    return () => {
+      if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
+    };
+  }, []);
 
   useEffect(() => {
     async function syncOffline() {
@@ -258,21 +258,13 @@ export function DiaryEditor({
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
-    getCachedEntry(entryDate).then((cached) => {
-      if (cached && editor && !readOnly) {
-        const serverTime = entryUpdatedAt ?? "";
-        if (!serverTime || cached.updatedAt > serverTime) {
-          editor.commands.setContent(cached.content, { emitUpdate: false });
-        }
-      }
-    });
+    syncOffline();
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [editor, entryDate, readOnly, entryUpdatedAt]);
+  }, [editor, entryDate, readOnly]);
 
   async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;

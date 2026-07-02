@@ -12,8 +12,27 @@ import {
   isReadOnlyDate,
   todayString,
 } from "@/lib/dates";
+import { getCachedEntry } from "@/lib/offline/db";
 import type { Entry, Favorite, MembersResponse } from "@/types/database";
 import type { AuthorProfile } from "@/lib/editor/author-mark";
+
+function resolveInitialContent(
+  entry: Entry | null,
+  cached: Awaited<ReturnType<typeof getCachedEntry>>
+): { content: JSONContent; updatedAt: string | null } {
+  const serverContent = entry?.content ?? EMPTY_DOC;
+  const serverUpdatedAt = entry?.updated_at ?? null;
+
+  if (!cached) {
+    return { content: serverContent, updatedAt: serverUpdatedAt };
+  }
+
+  if (!serverUpdatedAt || cached.updatedAt > serverUpdatedAt) {
+    return { content: cached.content, updatedAt: cached.updatedAt };
+  }
+
+  return { content: serverContent, updatedAt: serverUpdatedAt };
+}
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -52,6 +71,7 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
   const entryDate = resolveDateParam(dateParam);
 
   const [entry, setEntry] = useState<Entry | null>(null);
+  const [editorContent, setEditorContent] = useState<JSONContent | null>(null);
   const [favorite, setFavorite] = useState<Favorite | null>(null);
   const [authorProfile, setAuthorProfile] = useState<AuthorProfile | null>(null);
   const [members, setMembers] = useState<AuthorProfile[]>([]);
@@ -67,13 +87,19 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
     }
 
     setLoading(true);
+    setEditorContent(null);
 
     Promise.all([
       fetchJson<{ entry: Entry | null }>(`/api/entries?date=${entryDate}`),
       fetchJson<{ favorite: Favorite | null }>(`/api/favorites?date=${entryDate}`),
       fetchJson<MembersResponse>("/api/members"),
-    ]).then(([entryData, favData, membersData]) => {
-      setEntry(entryData.entry ?? null);
+      getCachedEntry(entryDate),
+    ]).then(([entryData, favData, membersData, cached]) => {
+      const loadedEntry = entryData.entry ?? null;
+      const { content } = resolveInitialContent(loadedEntry, cached);
+
+      setEntry(loadedEntry);
+      setEditorContent(content);
       setFavorite(favData.favorite ?? null);
       const mapped = membersData.members.map((m) => ({
         userId: m.userId,
@@ -174,12 +200,11 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
                 ★ Favorito: {favorite.reason}
               </p>
             )}
-            {authorProfile && (
+            {authorProfile && editorContent && (
               <DiaryEditor
                 key={entryDate}
                 entryDate={entryDate}
-                initialContent={entry?.content ?? EMPTY_DOC}
-                entryUpdatedAt={entry?.updated_at ?? null}
+                initialContent={editorContent}
                 readOnly={readOnly}
                 authorProfile={authorProfile}
                 members={members}
