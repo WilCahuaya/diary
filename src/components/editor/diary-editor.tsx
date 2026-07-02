@@ -43,24 +43,25 @@ export function DiaryEditor({
 }: DiaryEditorProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "offline">("idle");
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autosaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOnline = useRef(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const isSaving = useRef(false);
 
   const saveEntry = useCallback(
     async (content: JSONContent) => {
-      if (readOnly) return;
+      if (readOnly || isSaving.current) return;
 
       const contentPlain = extractPlainText(content);
+      isSaving.current = true;
       setSaveStatus("saving");
 
-      if (!navigator.onLine) {
-        await queuePendingSave(entryDate, content, contentPlain);
-        await cacheEntry(entryDate, content, contentPlain, new Date().toISOString());
-        setSaveStatus("offline");
-        return;
-      }
-
       try {
+        if (!navigator.onLine) {
+          await queuePendingSave(entryDate, content, contentPlain);
+          await cacheEntry(entryDate, content, contentPlain, new Date().toISOString());
+          setSaveStatus("offline");
+          return;
+        }
+
         const res = await fetch("/api/entries", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -81,6 +82,8 @@ export function DiaryEditor({
         await queuePendingSave(entryDate, content, contentPlain);
         await cacheEntry(entryDate, content, contentPlain, new Date().toISOString());
         setSaveStatus("offline");
+      } finally {
+        isSaving.current = false;
       }
     },
     [entryDate, readOnly, onSaved]
@@ -194,14 +197,6 @@ export function DiaryEditor({
     onBlur: ({ editor: ed }) => {
       if (!readOnly) saveEntry(ed.getJSON());
     },
-    onUpdate: ({ editor: ed }) => {
-      if (readOnly) return;
-
-      if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
-      autosaveTimeout.current = setTimeout(() => {
-        saveEntry(ed.getJSON());
-      }, 800);
-    },
   },
     [authorProfile.userId, authorProfile.color, authorProfile.isOwner, entryDate, readOnly]
   );
@@ -210,12 +205,6 @@ export function DiaryEditor({
     if (!editor) return;
     editor.setEditable(!readOnly);
   }, [editor, readOnly]);
-
-  useEffect(() => {
-    return () => {
-      if (autosaveTimeout.current) clearTimeout(autosaveTimeout.current);
-    };
-  }, []);
 
   useEffect(() => {
     async function syncOffline() {
@@ -264,7 +253,7 @@ export function DiaryEditor({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [editor, entryDate, readOnly]);
+  }, [entryDate, readOnly]);
 
   async function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;

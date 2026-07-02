@@ -72,7 +72,8 @@ function isForeignText(
 export function createAuthorPlugin(profile: AuthorProfile) {
   return new Plugin({
     key: new PluginKey("authorMark"),
-    appendTransaction(transactions, oldState, newState) {
+    appendTransaction(transactions, _oldState, newState) {
+      if (transactions.some((tr) => tr.getMeta("authorMarking"))) return null;
       if (!transactions.some((tr) => tr.docChanged)) return null;
 
       const markType = newState.schema.marks.author;
@@ -87,21 +88,27 @@ export function createAuthorPlugin(profile: AuthorProfile) {
       let tr = newState.tr;
       let modified = false;
 
-      newState.doc.descendants((node, pos) => {
-        if (!node.isText || !node.text) return;
+      for (const transaction of transactions) {
+        if (!transaction.docChanged || transaction.getMeta("authorMarking")) continue;
 
-        const hasAuthor = node.marks.some((m) => m.type === markType);
-        if (hasAuthor) return;
+        for (let i = 0; i < transaction.steps.length; i++) {
+          const step = transaction.steps[i];
+          if (!(step instanceof ReplaceStep) || !step.slice.content.size) continue;
 
-        const oldNode = oldState.doc.nodeAt(pos);
-        const oldText = oldNode?.isText ? oldNode.text : "";
-        if (oldText === node.text) return;
+          const from = transaction.mapping.slice(i).map(step.from, 1);
+          const to = transaction.mapping.slice(i).map(step.to, -1);
 
-        tr = tr.addMark(pos, pos + node.nodeSize, authorMark);
-        modified = true;
-      });
+          newState.doc.nodesBetween(from, to, (node, pos) => {
+            if (!node.isText || !node.text) return;
+            if (node.marks.some((m) => m.type === markType)) return;
 
-      return modified ? tr : null;
+            tr = tr.addMark(pos, pos + node.nodeSize, authorMark);
+            modified = true;
+          });
+        }
+      }
+
+      return modified ? tr.setMeta("authorMarking", true) : null;
     },
   });
 }
@@ -309,6 +316,7 @@ export function createAuthorProtectionPlugin(currentUserId: string) {
   return new Plugin({
     key: new PluginKey("authorProtection"),
     filterTransaction(transaction, state) {
+      if (transaction.getMeta("authorMarking")) return true;
       if (!transaction.docChanged) return true;
 
       const markType = state.schema.marks.author;
