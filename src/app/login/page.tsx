@@ -4,10 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+function isCoarsePointerDevice() {
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -15,7 +20,11 @@ export default function LoginPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    if (!passwordFocused) return;
+    setIsTouchDevice(isCoarsePointerDevice());
+  }, []);
+
+  useEffect(() => {
+    if (isTouchDevice || !passwordFocused) return;
 
     const id = window.setInterval(() => {
       const el = passwordRef.current;
@@ -25,7 +34,11 @@ export default function LoginPage() {
     }, 50);
 
     return () => clearInterval(id);
-  }, [password, passwordFocused]);
+  }, [password, passwordFocused, isTouchDevice]);
+
+  function blockClipboard(e: React.ClipboardEvent | React.DragEvent) {
+    e.preventDefault();
+  }
 
   function handlePasswordKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Tab" || e.key === "Enter") return;
@@ -104,32 +117,52 @@ export default function LoginPage() {
             <label htmlFor="password" className="mb-1 block text-sm text-muted-foreground">
               Contraseña
             </label>
-            <input
-              ref={passwordRef}
-              id="password"
-              name="diary-secret"
-              type="text"
-              value={password}
-              onKeyDown={handlePasswordKeyDown}
-              onChange={(e) => {
-                if (e.target.value !== password) {
-                  e.target.value = password;
-                }
-              }}
-              onPaste={(e) => e.preventDefault()}
-              onDrop={(e) => e.preventDefault()}
-              onFocus={() => setPasswordFocused(true)}
-              onBlur={() => setPasswordFocused(false)}
-              required
-              autoComplete="one-time-code"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              data-lpignore="true"
-              data-1p-ignore="true"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
-            />
+            {isTouchDevice ? (
+              <input
+                id="password"
+                name="diary-secret"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onPaste={blockClipboard}
+                onDrop={blockClipboard}
+                required
+                autoComplete="new-password"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            ) : (
+              <input
+                ref={passwordRef}
+                id="password"
+                name="diary-secret"
+                type="text"
+                value={password}
+                onKeyDown={handlePasswordKeyDown}
+                onChange={(e) => {
+                  if (e.target.value !== password) {
+                    e.target.value = password;
+                  }
+                }}
+                onPaste={blockClipboard}
+                onDrop={blockClipboard}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                required
+                autoComplete="one-time-code"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                style={{ WebkitTextSecurity: "disc" } as React.CSSProperties}
+              />
+            )}
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
