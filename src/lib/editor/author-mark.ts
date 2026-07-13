@@ -312,6 +312,25 @@ function blocksParagraphJoinIntoForeign(
   return paragraphIsForeignOnly(prevSibling, markType, currentUserId);
 }
 
+function stepInsertsOnlyImages(step: ReplaceStep): boolean {
+  if (!step.slice.content.size) return false;
+
+  let onlyImages = true;
+  step.slice.content.forEach((node) => {
+    if (node.type.name !== "image") onlyImages = false;
+  });
+
+  return onlyImages;
+}
+
+function transactionInsertsOnlyImages(transaction: { steps: readonly unknown[] }): boolean {
+  if (!transaction.steps.length) return false;
+
+  return transaction.steps.every(
+    (step) => step instanceof ReplaceStep && stepInsertsOnlyImages(step)
+  );
+}
+
 export function createAuthorProtectionPlugin(currentUserId: string) {
   return new Plugin({
     key: new PluginKey("authorProtection"),
@@ -319,11 +338,15 @@ export function createAuthorProtectionPlugin(currentUserId: string) {
       if (transaction.getMeta("authorMarking")) return true;
       if (!transaction.docChanged) return true;
 
+      const imageOnlyInsert = transactionInsertsOnlyImages(transaction);
+
       const markType = state.schema.marks.author;
       if (!markType) return true;
 
       for (const step of transaction.steps) {
         if (!(step instanceof ReplaceStep)) continue;
+
+        if (imageOnlyInsert) continue;
 
         const { from, to } = step;
 
@@ -358,7 +381,7 @@ export function createAuthorProtectionPlugin(currentUserId: string) {
 
       const { head, empty } = newState.selection;
 
-      if (isForeignClick(newState, head, currentUserId, markType)) {
+      if (!imageOnlyInsert && isForeignClick(newState, head, currentUserId, markType)) {
         return false;
       }
 

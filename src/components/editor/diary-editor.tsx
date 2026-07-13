@@ -3,7 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { DiaryImage, insertDiaryImage } from "@/lib/editor/diary-image";
+import { DiaryImage, insertDiaryImage, insertDiaryImageAt } from "@/lib/editor/diary-image";
 import { AuthorMark, AuthorTypingExtension, AuthorProtectionExtension, type AuthorProfile } from "@/lib/editor/author-mark";
 import { AuthorLegend } from "./author-legend";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -45,6 +45,9 @@ export function DiaryEditor({
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOnline = useRef(typeof navigator !== "undefined" ? navigator.onLine : true);
   const isSaving = useRef(false);
+  const handleImageFilesRef = useRef<
+    (files: File[], position?: number) => Promise<void>
+  >(async () => {});
 
   const saveEntry = useCallback(
     async (content: JSONContent) => {
@@ -136,7 +139,7 @@ export function DiaryEditor({
         class:
           "prose prose-neutral dark:prose-invert max-w-none min-h-[50dvh] focus:outline-none px-0 py-2 text-base sm:min-h-[60vh] sm:px-1 sm:text-sm",
       },
-      handleDrop(view, event) {
+      handleDrop(_view, event) {
         if (readOnly) return false;
         const files = event.dataTransfer?.files;
         if (!files?.length) return false;
@@ -145,53 +148,30 @@ export function DiaryEditor({
         if (!imageFiles.length) return false;
 
         event.preventDefault();
-        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        const coords = _view.posAtCoords({ left: event.clientX, top: event.clientY });
+        void handleImageFilesRef.current(imageFiles, coords?.pos);
 
-        imageFiles.forEach(async (file) => {
-          const result = await uploadImage(file);
-          if (result && coords) {
-            view.dispatch(
-              view.state.tr.insert(
-                coords.pos,
-                view.state.schema.nodes.image.create({
-                  src: result.url,
-                  alt: "",
-                  dataImageId: result.id,
-                })
-              )
-            );
-          }
-        });
         return true;
       },
-      handlePaste(view, event) {
+      handlePaste(_view, event) {
         if (readOnly) return false;
         const items = event.clipboardData?.items;
         if (!items) return false;
 
+        const imageFiles: File[] = [];
         for (const item of Array.from(items)) {
           if (item.type.startsWith("image/")) {
-            event.preventDefault();
             const file = item.getAsFile();
-            if (!file) continue;
-            uploadImage(file).then((result) => {
-              if (result) {
-                const { tr } = view.state;
-                view.dispatch(
-                  tr.replaceSelectionWith(
-                    view.state.schema.nodes.image.create({
-                      src: result.url,
-                      alt: "",
-                      dataImageId: result.id,
-                    })
-                  )
-                );
-              }
-            });
-            return true;
+            if (file) imageFiles.push(file);
           }
         }
-        return false;
+
+        if (!imageFiles.length) return false;
+
+        event.preventDefault();
+        void handleImageFilesRef.current(imageFiles);
+
+        return true;
       },
     },
     onBlur: ({ editor: ed }) => {
@@ -200,6 +180,30 @@ export function DiaryEditor({
   },
     [authorProfile.userId, authorProfile.color, authorProfile.isOwner, entryDate, readOnly]
   );
+
+  useEffect(() => {
+    if (!editor) return;
+
+    handleImageFilesRef.current = async (files, position) => {
+      if (readOnly) return;
+
+      let dropPosition = position;
+
+      for (const file of files) {
+        const result = await uploadImage(file);
+        if (!result) continue;
+
+        if (dropPosition !== undefined) {
+          insertDiaryImageAt(editor, { src: result.url, dataImageId: result.id }, dropPosition);
+          dropPosition = undefined;
+        } else {
+          insertDiaryImage(editor, { src: result.url, dataImageId: result.id });
+        }
+      }
+
+      saveEntry(editor.getJSON());
+    };
+  }, [editor, readOnly, uploadImage, saveEntry]);
 
   useEffect(() => {
     if (!editor) return;
@@ -265,6 +269,8 @@ export function DiaryEditor({
         insertDiaryImage(editor, { src: result.url, dataImageId: result.id });
       }
     }
+
+    saveEntry(editor.getJSON());
     e.target.value = "";
   }
 

@@ -30,3 +30,18 @@ export function insertDiaryImage(
     })
     .run();
 }
+
+export function insertDiaryImageAt(
+  editor: Editor,
+  attrs: { src: string; alt?: string; dataImageId?: string },
+  position: number
+) {
+  editor
+    .chain()
+    .focus()
+    .insertContentAt(position, {
+      type: "image",
+      attrs: { alt: "", ...attrs },
+    })
+    .run();
+}
