@@ -42,6 +42,7 @@ export function DiaryEditor({
   onSaved,
 }: DiaryEditorProps) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "offline">("idle");
+  const [uploadError, setUploadError] = useState("");
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOnline = useRef(typeof navigator !== "undefined" ? navigator.onLine : true);
   const isSaving = useRef(false);
@@ -93,13 +94,20 @@ export function DiaryEditor({
     async (file: File): Promise<{ url: string; id: string } | null> => {
       const formData = new FormData();
       formData.append("file", file);
+      setUploadError("");
 
       try {
         const res = await fetch("/api/images", { method: "POST", body: formData });
-        if (!res.ok) return null;
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setUploadError(
+            typeof data.error === "string" ? data.error : "No se pudo subir la imagen"
+          );
+          return null;
+        }
         return { url: data.url as string, id: data.id as string };
       } catch {
+        setUploadError("Error de red al subir la imagen");
         return null;
       }
     },
@@ -276,7 +284,8 @@ export function DiaryEditor({
         guestCanWrite={guestCanWrite}
       />
       {!readOnly && (
-        <div className="mb-3 flex items-center justify-between gap-2 border-b border-border pb-3 sm:mb-4 lg:justify-end">
+        <div className="mb-3 flex flex-col gap-2 border-b border-border pb-3 sm:mb-4">
+          <div className="flex items-center justify-between gap-2 lg:justify-end">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors active:bg-accent hover:bg-accent hover:text-accent-foreground lg:hidden">
             <ImagePlus className="h-5 w-5 shrink-0" />
             Elegir imagen
@@ -300,6 +309,10 @@ export function DiaryEditor({
             {saveStatus === "saved" && "Guardado"}
             {saveStatus === "offline" && "Sin conexión — guardado localmente"}
           </span>
+          </div>
+          {uploadError && (
+            <p className="text-sm text-destructive">{uploadError}</p>
+          )}
         </div>
       )}
 
