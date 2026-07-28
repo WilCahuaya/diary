@@ -36,6 +36,12 @@ export interface DiaryMember {
   canWrite: boolean;
 }
 
+export interface EntryReadInfo {
+  userId: string;
+  displayName: string;
+  lastReadAt: string | null;
+}
+
 export interface MembersResponse {
   current: DiaryMember;
   members: DiaryMember[];

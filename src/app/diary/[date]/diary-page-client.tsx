@@ -15,6 +15,7 @@ import {
 import { getCachedEntry } from "@/lib/offline/db";
 import type { Entry, Favorite, MembersResponse } from "@/types/database";
 import type { AuthorProfile } from "@/lib/editor/author-mark";
+import { EntryReadStatus } from "@/components/entry-read-status";
 
 function resolveInitialContent(
   entry: Entry | null,
@@ -200,6 +201,7 @@ export function DiaryPageClient({ dateParam }: DiaryPageClientProps) {
                 ★ Favorito: {favorite.reason}
               </p>
             )}
+            <EntryReadStatus entryDate={entryDate} />
             {authorProfile && editorContent && (
               <DiaryEditor
                 key={entryDate}
