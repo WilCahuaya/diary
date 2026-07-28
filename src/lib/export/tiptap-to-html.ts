@@ -73,7 +73,7 @@ export function tiptapToHtml(content: JSONContent, title?: string): string {
     body { font-family: Georgia, 'Times New Roman', serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #1a1a1a; }
     h1 { font-size: 1.4rem; font-weight: normal; margin-bottom: 2rem; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
     p { margin: 0 0 1em; }
-    .diary-image { margin: 1.5em 0; }
+    .diary-image { margin: 1.5em 0; text-align: center; }
     .diary-image img { max-width: 100%; height: auto; }
     ul, ol { margin: 0 0 1em 1.5em; }
     blockquote { border-left: 3px solid #ccc; margin: 1em 0; padding-left: 1em; color: #555; }

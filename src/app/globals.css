@@ -124,7 +124,8 @@ select,
 }
 
 .diary-image-node {
-  display: block;
+  display: flex;
+  justify-content: center;
   margin: 1rem 0;
   line-height: 0;
 }
