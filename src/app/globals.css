@@ -123,6 +123,80 @@ select,
   cursor: grab;
 }
 
+.diary-image-node {
+  display: block;
+  margin: 1rem 0;
+  line-height: 0;
+}
+
+.diary-image-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.diary-image-frame .diary-inline-image,
+.diary-image-frame img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  cursor: default;
+  border-radius: 0.5rem;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.diary-image-frame.is-selected {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}
+
+.diary-image-handle {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid var(--background);
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--foreground) 20%, transparent);
+  touch-action: none;
+}
+
+.diary-image-handle--se {
+  right: -6px;
+  bottom: -6px;
+  cursor: nwse-resize;
+}
+
+.diary-image-handle--sw {
+  left: -6px;
+  bottom: -6px;
+  cursor: nesw-resize;
+}
+
+@media (pointer: coarse) {
+  .diary-image-handle {
+    width: 18px;
+    height: 18px;
+  }
+
+  .diary-image-handle--se {
+    right: -8px;
+    bottom: -8px;
+  }
+
+  .diary-image-handle--sw {
+    left: -8px;
+    bottom: -8px;
+  }
+}
+
 .ProseMirror img.ProseMirror-selectednode {
   outline: 2px solid var(--ring);
 }

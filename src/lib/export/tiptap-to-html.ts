@@ -43,7 +43,12 @@ function renderNode(node: JSONContent): string {
     case "image": {
       const src = node.attrs?.src as string;
       const alt = escapeHtml((node.attrs?.alt as string) ?? "");
-      return `<figure class="diary-image"><img src="${src}" alt="${alt}" /></figure>`;
+      const width =
+        typeof node.attrs?.width === "number" ? node.attrs.width : null;
+      const style = width
+        ? `style="width:${width}px;max-width:100%;height:auto;"`
+        : `style="max-width:100%;height:auto;"`;
+      return `<figure class="diary-image"><img src="${src}" alt="${alt}" ${style} /></figure>`;
     }
     default:
       return node.content?.map(renderNode).join("") ?? "";
